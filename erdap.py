@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 
 TIME_DELAY = 5
 VERBOSE = False
+WRITE = False
 
 # Checks for verbose mode and enables it
 if len(sys.argv) == 2:
