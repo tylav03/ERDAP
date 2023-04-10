@@ -2,13 +2,14 @@ import time
 import datetime
 import csv
 import sys
-import mysql.connector
+import pyodbc
+import pytz
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 
-TIME_DELAY = 5
+TIME_DELAY = 300
 VERBOSE = False
 WRITE = False
 
@@ -34,35 +35,33 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), opti
 print("Web driver created successfully\n" if VERBOSE else "", end='')
 
 # Create SQL connection
-mydb = mysql.connector.connect(
-    host="tylav-data.database.windows.net",
-    user="tylav",
-    password="allDaData7!",
-    port=1433,
-    database="Ty_Data"
-)
+cnxn = pyodbc.connect('Driver={/opt/homebrew/lib/libmsodbcsql.18.dylib};'
+                      'Server=tcp:tylav-data.database.windows.net,1433;'
+                      'Database=Ty_Data;'
+                      'Uid=tylav;Pwd=allDaData7!;'
+                      'Encrypt=yes;'
+                      'TrustServerCertificate=no;'
+                      'Connection Timeout=30')
+cursor = cnxn.cursor()
 
 # website that holds live occupancy data
 driver.get("https://bewell.ese.syr.edu/FacilityOccupancy")
 
-header = ["Date", "Time", "Occupancy %"]
-with open("test.csv", 'w', newline="") as file:
-    csvwriter = csv.writer(file) # 2. create a csvwriter object
-    csvwriter.writerow(header) # 4. write the header
-    #csvwriter.writerows(data) # 5. write the rest of the data
-
 while True:
-    occ = driver.find_element(By.XPATH, '//*[@id="occupancy-aa8c6536-b2ea-4b48-90e6-5df79edc5494"]/div[1]/div[2]/p[3]/strong')
-    write_string = "[" + str(datetime.datetime.now()) + "] - Occupancy Rate: " + occ.text + "\n"
-    file_string = str(datetime.date.today()) + "_occupancy_data.csv"
-    #file1 = open(file_string, "a")
-    #file1.writelines(write_string)
-    #file1.close()
-    data = [[datetime.date.today(), str(datetime.datetime.now()).split(" ")[1].split(".")[0], occ.text]]
-    with open(file_string, 'a', newline="") as file:
-        csvwriter = csv.writer(file)  # 2. create a csvwriter object
-        #csvwriter.writerow(header)  # 4. write the header
-        csvwriter.writerows(data) # 5. write the rest of the data
-    print("[", datetime.datetime.now(), "] - Occupancy Rate:", occ.text)
+    current_hour = datetime.datetime.now().hour
+    dayOfWeek = datetime.datetime.now(pytz.timezone('America/New_York')).weekday()
+    if ((current_hour >= 9 and dayOfWeek <= 4) or (current_hour >= 11 and dayOfWeek > 4)) and current_hour < 23:
+        occ = driver.find_element(By.XPATH, '//*[@id="occupancy-aa8c6536-b2ea-4b48-90e6-5df79edc5494"]/div[1]/div[2]/p[3]/strong')
+
+        date_str = str(datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%Y-%m-%d'))
+        time_str = str(datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%H:%M:%S'))
+        occupancy = occ.text.strip('%')
+
+        cursor.execute(f"INSERT INTO ERDAP (LogDate, LogTime, Occupancy, DayOfWeek) VALUES ('{date_str}', '{time_str}', '{occupancy}', '{dayOfWeek}');")
+        cnxn.commit()
+
+        print(date_str, time_str, occupancy, dayOfWeek)
+    else:
+        print("Gym Closed: No data retrieved")
     time.sleep(TIME_DELAY)
     driver.refresh()
