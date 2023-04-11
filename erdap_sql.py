@@ -52,12 +52,12 @@ while True:
     dayOfWeek = datetime.datetime.now(pytz.timezone('America/New_York')).weekday()
     if ((current_hour >= 9 and dayOfWeek <= 4) or (current_hour >= 11 and dayOfWeek > 4)) and current_hour < 23:
         occ = driver.find_element(By.XPATH, '//*[@id="occupancy-aa8c6536-b2ea-4b48-90e6-5df79edc5494"]/div[1]/div[2]/p[3]/strong')
-
+        dayOfWeekStr = str(datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%A'))
         date_str = str(datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%Y-%m-%d'))
         time_str = str(datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%H:%M:%S'))
         occupancy = occ.text.strip('%')
 
-        cursor.execute(f"INSERT INTO ERDAP (LogDate, LogTime, Occupancy, DayOfWeek) VALUES ('{date_str}', '{time_str}', '{occupancy}', '{dayOfWeek}');")
+        cursor.execute(f"INSERT INTO ERDAP (LogDate, LogTime, Occupancy, DayOfWeek) VALUES ('{date_str}', '{time_str}', '{occupancy}', '{dayOfWeekStr}');")
         cnxn.commit()
 
         print(date_str, time_str, occupancy, dayOfWeek)
